@@ -11,38 +11,85 @@ let SCALE = 1;
 
 let ctx = undefined;
 
+let TURRETS = [];
+let BOXES = [];
+let BULLETS = [];
 let RENDER_OBJECTS = [];
 let RENDER_MENU = [
     {
-        x: 50, // Центр верхней границы по X
-        y: 20, // Верхняя позиция по Y
+        pos: "rel",
+        x: 50,
+        y: 30,
+        id: "gameover",
+        visiable: false,
         items: [
             [{
                 type: "text",
-                text: "Главное меню",
+                text: "GAME OVER",
                 fontStyle: "bold",
                 font: "Arial",
-                fontSize: 24
+                fontSize: 100
+            }],
+            [{
+                type: "text",
+                text: "Результат:",
+                fontStyle: "bold",
+                font: "Arial",
+                fontSize: 60
+            },
+            {
+                type: "text",
+                text: "100",
+                fontStyle: "bold",
+                font: "Arial",
+                fontSize: 60
             }],
             [{
                 type: "button",
-                text: "Начать игру",
+                text: "Заново",
                 fontSize: 124,
                 font: "Arial",
-                act: () => {console.log(123);}
+                act: () => {location.reload();}
+            }]
+        ]
+    },
+    {
+        pos: "rel",
+        x: 50,
+        y: 0,
+        id: "score",
+        bgColor: "#00000000",
+        visiable: true,
+        items: [
+            [{
+                type: "text",
+                text: "SCORE:",
+                fontSize: 16,
+                color: "#fff"
+            },
+            {
+                type: "text",
+                text: "0",
+                fontSize: 16,
+                color: "#fff"
             }],
             [{
+                type: "text",
+                text: "Здоровье:",
+                font: "Arial",
+                fontSize: 10
+            },
+            {
                 type: "progressbar",
-                height: 40,
-                width: 4,
-                value: 65,
+                height: 2,
+                width: 30,
+                value: 100,
                 max: 100
             }]
         ]
     }
 ];
 let BUTTONS = [];
-// let RENDER_MENU = [];
 
 const UI_STATE = {
     hoveredElement: null,
@@ -91,6 +138,7 @@ function renderO(object) {
             // {type: "circle", scolor: "#...", x: x, y: y, r: radius, *life: ticks}
             ctx.beginPath();
             ctx.arc((object.x / 100 * MIN_POINT_PX)*SCALE - DELTA_X + CONST_DELTA_X, (object.y / 100 * MIN_POINT_PX)*SCALE - DELTA_Y + CONST_DELTA_Y, SCALE*object.r / 100 * MIN_POINT_PX / 2, 0, 2 * Math.PI);
+            ctx.fill();
             ctx.closePath();
             ctx.stroke();
             break;
@@ -108,161 +156,309 @@ function renderO(object) {
 }
 
 function isInsideRect(x, y, rect_x, rect_y, rect_w, rect_h) {
-    console.log(x, y, rect_x, rect_y, rect_w, rect_h)
     return x > rect_x && x < rect_x + rect_w && y < rect_y + rect_h && y > rect_y
 }
 
 function renderM(menu) {
+    if (!menu.visiable) return;
+
     ctx.save();
 
-    const config = {
-        padding: 2,
-        spacing: 1.5,
-        progressBarSize: [40, 1],
-        textColor: "#FFFFFF",
-        buttonColor: "#3498db",
-        bgColor: "rgba(0,0,0,0.8)",
-        ...menu.config
-    };
+    if (menu.pos === "abs") {
+        const config = {
+            padding: 2,
+            spacing: 1.5,
+            progressBarSize: [40, 1],
+            textColor: "#FFFFFF",
+            buttonColor: "#3498db",
+            bgColor: "rgba(0,0,0,0.8)",
+            ...menu.config
+        };
 
-    let totalHeight = 0;
-    let maxWidth = 0;
-    const elements = [];
+        let totalHeight = 0;
+        let maxWidth = 0;
+        const elements = [];
 
-    menu.items.forEach(row => {
-        let rowWidth = 0;
-        let rowHeight = 0;
-        
-        row.forEach(element => {
-            const elem = { type: element.type };
-
-            ctx.font = (element.fontSize || 10) * SCALE + "px " + (element.font || "Arial") + " " + (element.fontStyle || "");
-            let metrics = ctx.measureText(element.text || "");
+        menu.items.forEach(row => {
+            let rowWidth = 0;
+            let rowHeight = 0;
             
-            switch(element.type) {
-                case 'button':
-                    elem.width = (metrics.width / (MIN_POINT_PX * SCALE)) * 100 + config.spacing * 2;
-                    elem.height = ((element.fontSize || 10) / MIN_POINT_PX) * 100 + config.spacing * 2;
-                    elem.act = element.act;
-                    break;
+            row.forEach(element => {
+                const elem = { type: element.type };
 
-                case 'text':
-                    elem.width = (metrics.width / (MIN_POINT_PX * SCALE)) * 100;
-                    elem.height = ((element.fontSize || 10) / MIN_POINT_PX) * 100;
-                    break;
-                    
-                case 'progressbar':
-                    elem.width = elem.width || config.progressBarSize[0];
-                    elem.height = elem.height || config.progressBarSize[1];
-                    break;
-            }
-            
-            elements.push(elem);
-            rowWidth += elem.width;
-            rowHeight = Math.max(rowHeight, elem.height);
+                ctx.font = (element.fontSize || 10) * SCALE + "px " + (element.font || "Arial") + " " + (element.fontStyle || "");
+                let metrics = ctx.measureText(element.text || "");
+                
+                switch(element.type) {
+                    case 'button':
+                        elem.width = (metrics.width / (MIN_POINT_PX * SCALE)) * 100 + config.spacing * 2;
+                        elem.height = ((element.fontSize || 10) / MIN_POINT_PX) * 100 + config.spacing * 2;
+                        elem.act = element.act;
+                        break;
+
+                    case 'text':
+                        elem.width = (metrics.width / (MIN_POINT_PX * SCALE)) * 100;
+                        elem.height = ((element.fontSize || 10) / MIN_POINT_PX) * 100;
+                        break;
+                        
+                    case 'progressbar':
+                        elem.width = elem.width || config.progressBarSize[0];
+                        elem.height = elem.height || config.progressBarSize[1];
+                        break;
+                }
+                
+                elements.push(elem);
+                rowWidth += elem.width;
+                rowHeight = Math.max(rowHeight, elem.height);
+            });
+
+            maxWidth = Math.max(maxWidth, rowWidth + (row.length - 1) * config.spacing);
+            totalHeight += rowHeight + config.spacing;
         });
 
-        maxWidth = Math.max(maxWidth, rowWidth + (row.length - 1) * config.spacing);
-        totalHeight += rowHeight + config.spacing;
-    });
+        const menuWidth = maxWidth + 2 * config.padding;
+        const menuHeight = totalHeight + 2 * config.padding;
+        const startX = menu.x - menuWidth / 2;
+        const startY = menu.y;
 
-    BUTTONS = [];
-
-    const menuWidth = maxWidth + 2 * config.padding;
-    const menuHeight = totalHeight + 2 * config.padding;
-    const startX = menu.x - menuWidth / 2;
-    const startY = menu.y;
-
-    renderO({
-        type: "rect",
-        x: startX,
-        y: startY,
-        w: menuWidth,
-        h: menuHeight,
-        fcolor: config.bgColor
-    });
-
-    let currentY = startY + config.padding;
-    let elementIndex = 0;
-
-    menu.items.forEach((row) => {
-        let currentX = startX + config.padding;
-        const rowHeight = Math.max(...row.map(() => elements[elementIndex].height));
-
-        row.forEach((element) => {
-            const elem = elements[elementIndex];
-            const elemY = currentY + (rowHeight - elem.height) / 2;
-
-            switch(element.type) {
-                case 'text':
-                    renderO({
-                        type: "text",
-                        text: element.text,
-                        x: currentX + elem.width/2,
-                        y: elemY + elem.height/2,
-                        fcolor: config.textColor,
-                        align: "center",
-                        baseline: "middle",
-                        font: element.font,
-                        fontSize: element.fontSize,
-                        fontStyle: element.fontStyle
-                    });
-                    break;
-
-                case 'button':
-                    renderO({
-                        type: "rect",
-                        x: currentX,
-                        y: elemY,
-                        w: elem.width,
-                        h: elem.height,
-                        fcolor: UI_STATE.hoveredElement === elementIndex 
-                            ? "#2980b9" 
-                            : config.buttonColor
-                    });
-
-                    renderO({
-                        type: "text",
-                        text: element.text,
-                        x: currentX + elem.width/2,
-                        y: elemY + elem.height/2,
-                        fcolor: config.textColor,
-                        align: "center",
-                        baseline: "middle",
-                        font: element.font,
-                        fontSize: element.fontSize,
-                        fontStyle: element.fontStyle
-                    });
-                    BUTTONS.push({x: currentX, y: elemY, w: elem.width, h: elem.height, do: elem.act})
-                    break;
-
-                case 'progressbar':
-                    renderO({
-                        type: "rect",
-                        x: currentX,
-                        y: elemY,
-                        w: elem.width,
-                        h: elem.height,
-                        fcolor: "#2c3e50"
-                    });
-
-                    renderO({
-                        type: "rect",
-                        x: currentX,
-                        y: elemY,
-                        w: (element.value / element.max) * elem.width,
-                        h: elem.height,
-                        fcolor: "#27ae60"
-                    });
-                    break;
-            }
-
-            currentX += elem.width + config.spacing;
-            elementIndex++;
+        renderO({
+            type: "rect",
+            x: startX,
+            y: startY,
+            w: menuWidth,
+            h: menuHeight,
+            fcolor: menu.bgColor || config.bgColor
         });
 
-        currentY += rowHeight + config.spacing;
-    });
+        let currentY = startY + config.padding;
+        let elementIndex = 0;
+
+        menu.items.forEach((row) => {
+            let currentX = startX + config.padding;
+            const rowHeight = Math.max(...row.map(() => elements[elementIndex].height));
+
+            row.forEach((element) => {
+                const elem = elements[elementIndex];
+                const elemY = currentY + (rowHeight - elem.height) / 2;
+
+                switch(element.type) {
+                    case 'text':
+                        renderO({
+                            type: "text",
+                            text: element.text,
+                            x: currentX + elem.width/2,
+                            y: elemY + elem.height/2,
+                            fcolor: config.textColor,
+                            align: "center",
+                            baseline: "middle",
+                            font: element.font,
+                            fontSize: element.fontSize,
+                            fontStyle: element.fontStyle
+                        });
+                        break;
+
+                    case 'button':
+                        renderO({
+                            type: "rect",
+                            x: currentX,
+                            y: elemY,
+                            w: elem.width,
+                            h: elem.height,
+                            fcolor: UI_STATE.hoveredElement === elementIndex 
+                                ? "#2980b9" 
+                                : config.buttonColor
+                        });
+
+                        renderO({
+                            type: "text",
+                            text: element.text,
+                            x: currentX + elem.width/2,
+                            y: elemY + elem.height/2,
+                            fcolor: config.textColor,
+                            align: "center",
+                            baseline: "middle",
+                            font: element.font,
+                            fontSize: element.fontSize,
+                            fontStyle: element.fontStyle
+                        });
+                        BUTTONS.push({x: currentX, y: elemY, w: elem.width, h: elem.height, do: elem.act});
+                        break;
+
+                    case 'progressbar':
+                        renderO({
+                            type: "rect",
+                            x: currentX,
+                            y: elemY,
+                            w: elem.width,
+                            h: elem.height,
+                            fcolor: "#2c3e50"
+                        });
+
+                        renderO({
+                            type: "rect",
+                            x: currentX,
+                            y: elemY,
+                            w: (element.value / element.max) * elem.width,
+                            h: elem.height,
+                            fcolor: "#27ae60"
+                        });
+                        break;
+                }
+
+                currentX += elem.width + config.spacing;
+                elementIndex++;
+            });
+
+            currentY += rowHeight + config.spacing;
+        });
+    } else if (menu.pos === "rel") {
+        let elements = [];
+        let totalWidth = 0;
+        let totalHeight = 0;
+        const padding = 2;
+    
+        menu.items.forEach(row => {
+            let rowWidth = 0;
+            let rowHeight = 0;
+    
+            row.forEach(element => {
+                ctx.save();
+                ctx.font = `${element.fontStyle || ""} ${element.fontSize / SCALE || 10}px ${element.font || "Arial"}`;
+                
+                let elem = { 
+                    type: element.type,
+                    width: 0,
+                    height: 0
+                };
+
+                const metrics = ctx.measureText(element.text || "");
+    
+                switch(element.type) {
+                    case 'text':
+                        elem.width = ((metrics.width / MIN_POINT_PX) * 100 + padding) / SCALE;
+                        elem.height = (element.fontSize) / SCALE / MIN_POINT_PX * 100;
+                        break;
+    
+                    case 'button':
+                        elem.width = (metrics.width / MIN_POINT_PX) * 100 / SCALE;
+                        elem.height = (element.fontSize) / SCALE / MIN_POINT_PX * 100;
+                        elem.act = element.act;
+                        break;
+    
+                    case 'progressbar':
+                        elem.width = (element.width || 30) / SCALE;
+                        elem.height = (element.height || 2) / SCALE;
+                        break;
+                }
+    
+                elements.push(elem);
+                rowWidth += elem.width;
+                rowHeight = Math.max(rowHeight, elem.height);
+                ctx.restore();
+            });
+    
+            totalWidth = Math.max(totalWidth, rowWidth);
+            totalHeight += rowHeight + padding / SCALE;
+        });
+    
+        // Позиционирование меню (центр верхней границы)
+        const menuX = (menu.x + (DELTA_X) / MIN_POINT_PX * 100) / SCALE - totalWidth / 2;
+        const menuY = (menu.y + (DELTA_Y) / MIN_POINT_PX * 100) / SCALE;
+    
+        // Отрисовка фона
+        renderO({
+            type: "rect",
+            x: menuX,
+            y: menuY,
+            w: totalWidth + padding * 2 / SCALE,
+            h: totalHeight + padding * 2 / SCALE,
+            fcolor: menu.bgColor || "rgba(0,0,0,0.7)"
+        });
+    
+        // Рендер элементов
+        let currentY = menuY + padding / SCALE;
+        let elementIndex = 0;
+    
+        menu.items.forEach(row => {
+            let currentX = menuX + padding / SCALE;
+            const rowHeight = Math.max(...row.map(() => elements[elementIndex].height));
+    
+            row.forEach(element => {
+                const elem = elements[elementIndex++];
+    
+                const elemPos = {
+                    x: currentX,
+                    y: currentY + (rowHeight - elem.height) / 2
+                };
+    
+                switch(element.type) {
+                    case 'text':
+                        renderO({
+                            type: "text",
+                            text: element.text,
+                            x: elemPos.x + elem.width / 2,
+                            y: elemPos.y + elem.height / 2,
+                            fcolor: element.color || "#FFF",
+                            align: "center",
+                            baseline: "middle",
+                            font: element.font,
+                            fontSize: element.fontSize / SCALE,
+                            fontStyle: element.fontStyle
+                        });
+                        break;
+    
+                    case 'button':
+                        renderO({
+                            type: "rect",
+                            x: elemPos.x,
+                            y: elemPos.y,
+                            w: elem.width,
+                            h: elem.height,
+                            fcolor: element.bgColor || "#3498db"
+                        });
+
+                        renderO({
+                            type: "text",
+                            text: element.text,
+                            x: elemPos.x + elem.width / 2,
+                            y: elemPos.y + elem.height / 2,
+                            fcolor: element.color || "#FFF",
+                            align: "center",
+                            baseline: "middle",
+                            font: element.font,
+                            fontSize: element.fontSize / SCALE
+                        });
+                        
+                        BUTTONS.push({x: elemPos.x, y: elemPos.y, w: elem.width, h: elem.height, do: elem.act});
+                        break;
+    
+                    case 'progressbar':
+                        renderO({
+                            type: "rect",
+                            x: elemPos.x,
+                            y: elemPos.y,
+                            w: elem.width,
+                            h: elem.height,
+                            fcolor: element.bgColor || "#2c3e50"
+                        });
+    
+                        renderO({
+                            type: "rect",
+                            x: elemPos.x,
+                            y: elemPos.y,
+                            w: (element.value / element.max) * elem.width,
+                            h: elem.height,
+                            fcolor: element.color || "#27ae60"
+                        });
+                        break;
+                }
+    
+                currentX += elem.width + padding / SCALE;
+            });
+    
+            currentY += rowHeight + padding / SCALE;
+        });
+    }
 
     ctx.restore();
 }
@@ -306,6 +502,7 @@ function convertToGameCoords(x, y) {
 }
 
 function render() {
+    BUTTONS = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < RENDER_OBJECTS.length; i++){
         renderO(RENDER_OBJECTS[i]);
@@ -338,16 +535,19 @@ let CLIENT_X = 0;
 let PREVIOUS_CLIENT_X = 0;
 let CLIENT_Y = 0;
 let PREVIOUS_CLIENT_Y = 0;
-let SCORE = 0;
-
 let IS_MOUSE_PRESSED = false;
 
-let MS_PER_TICK = 1000;
+let MS_PER_TICK = 50;
 
+let TURRET_SPAWN_COOLDOWN = 1 * 1000 / MS_PER_TICK;
+let lastTurretSpawnAttempt = 0;
+let TURRET_SPAWN_CHANCE = 1;
+
+let BASE = {hp: 100, bots: 0, res: 0, exp: 0}
 let PLANES = {
 };
 
-RENDER_OBJECTS.push({type: "circle", scolor: "#aaa", x: 50, y: 50, r: 95, life: Infinity});  
+RENDER_OBJECTS.push({type: "circle", scolor: "#aaa", fcolor: "#42aaff", x: 50, y: 50, r: 5, life: Infinity});  
 
 function ADD_PLANE(x, y, speed, a, da, to) {
     let maxn = ALPHABET.length - 10;
@@ -425,7 +625,7 @@ window.addEventListener("mousemove", (e) => {
     PREVIOUS_CLIENT_Y = NR_CLIENT_Y;
     CLIENT_X = NR_CLIENT_X + DELTA_X / SCALE / MIN_POINT_PX * 100;
     CLIENT_Y = NR_CLIENT_Y + DELTA_Y / SCALE / MIN_POINT_PX * 100;
-})
+});
 
 window.addEventListener("wheel", (e) => {
     if (IS_MOUSE_PRESSED) return;
@@ -445,19 +645,46 @@ window.addEventListener("wheel", (e) => {
 // game clicks
 canvas.addEventListener("click", (e) => {
     for (let i = 0; i < BUTTONS.length; i++){
-        if (!isInsideRect(e.offsetX / MIN_POINT_PX * 100, e.offsetY / MIN_POINT_PX * 100, BUTTONS[i].x, BUTTONS[i].y, BUTTONS[i].w, BUTTONS[i].h)) continue;
+        if (!isInsideRect(CLIENT_X, CLIENT_Y, BUTTONS[i].x, BUTTONS[i].y, BUTTONS[i].w, BUTTONS[i].h)) continue;
         BUTTONS[i].do();
         break;
     }
 
-    if (!CHECK_COLLISION(CLIENT_X, CLIENT_Y, 50, 50, 0.95 * 50)) return;
-    if (PRE_PLANE_UNDER_CONTROL != "" && PRE_PLANE_UNDER_CONTROL != PLANE_UNDER_CONTROL) {
-        PLANE_UNDER_CONTROL = PRE_PLANE_UNDER_CONTROL;
-        return;
+    for (let i = 0; i < TURRETS.length; i++) {
+        let turret = TURRETS[i];
+        if (CHECK_COLLISION(CLIENT_X, CLIENT_Y, turret.x, turret.y, 2)) {
+            turret.hp -= 10;
+            if (turret.hp <= 0) {
+                BASE.exp += 50;
+                TURRETS.splice(i, 1);
+            }
+            break;
+        }
     }
-    if (PLANE_UNDER_CONTROL == "") return;
-    PLANES[PLANE_UNDER_CONTROL].to = GET_ALGLE(CLIENT_X, CLIENT_Y, PLANES[PLANE_UNDER_CONTROL].cur.x, PLANES[PLANE_UNDER_CONTROL].cur.y);
-    VOCALIZE(`Flight ${PLANE_UNDER_CONTROL.split("").join(" ")}, vector to ${Math.round((180 + PLANES[PLANE_UNDER_CONTROL].to)/10)}`);
+
+    for (let i = 0; i < BOXES.length; i++) {
+        let box = BOXES[i];
+        if (CHECK_COLLISION(CLIENT_X, CLIENT_Y, box.x, box.y, 2)) {
+            box.hp -= 10;
+            if (box.hp <= 0) {
+                BASE.exp += 50;
+                BOXES.splice(i, 1);
+            }
+            break;
+        }
+    }
+
+    // for (let i = 0; i < TURRETS.length; i++) {
+    //     let turret = TURRETS[i];
+    //     if (CHECK_COLLISION(CLIENT_X, CLIENT_Y, turret.x, turret.y, 2)) {
+    //         turret.hp -= 10; // Урон по турели
+    //         if (turret.hp <= 0) {
+    //             BASE.exp += 50; // Награда за уничтожение
+    //             TURRETS.splice(i, 1);
+    //         }
+    //         break;
+    //     }
+    // }
 });
 
 let timer = setTimeout(function run() {
@@ -472,56 +699,195 @@ let timer = setTimeout(function run() {
             i -= 1;
         }
     }
-    RENDER_OBJECTS.push({type: "text", fcolor: "#fff", text: `SCORE: ${SCORE}`, x: 90, y: 10, life: 1});
-    PRE_PLANE_UNDER_CONTROL = "";
-    for (plane in PLANES) {
-        // if (PLANES[plane].uc && !CHECK_COLLISION(PLANES[plane].cur.x, PLANES[plane].cur.y, 50, 50, 0.9 * 50)) {
-        //     VOCALIZE(`ATC, flight ${PLANES[plane].name} is going to leave your airspace..`);
-        //     PLANES[plane].uc = false;
-        // } else if (!PLANES[plane].uc && CHECK_COLLISION(PLANES[plane].cur.x, PLANES[plane].cur.y, 50, 50, 0.9 * 50)) {
-        //     PLANES[plane].uc = true;
-        // } else if (!PLANES[plane].uc && CHECK_COLLISION(PLANES[plane].cur.x, PLANES[plane].cur.y, 50, 50, 0.95 * 50)) {
-        //     VOCALIZE(`Good morning ATC, flight ${PLANES[plane].name} entering your airspace`);
-        // }
-        // let d = (-180 >= PLANES[plane].to <= 0 ? PLANES[plane].to : -)- PLANES[plane].a;
-        PLANES[plane].a = TURN(PLANES[plane].a, PLANES[plane].to, PLANES[plane].da, undefined);
+    
+    if (lastTurretSpawnAttempt <= 0) {
+        if (Math.random() < TURRET_SPAWN_CHANCE) {
+            spawnBox();
+        }
+        lastTurretSpawnAttempt = TURRET_SPAWN_COOLDOWN;
+    } else {
+        lastTurretSpawnAttempt--;
+    }
+    
+    BASE.hp = Math.min(100, (BASE.hp + 0.1));
+    TURRET_SPAWN_COOLDOWN = Math.max(TURRET_SPAWN_COOLDOWN - 0.01, 1);
+    updateBase();
 
-        PLANES[plane].cur.x += Math.cos(PLANES[plane].a * Math.PI / 180) * PLANES[plane].speed;
-        PLANES[plane].cur.y += Math.sin(PLANES[plane].a * Math.PI / 180) * PLANES[plane].speed;
-        for (plane2 in PLANES) {
-            if (plane == plane2) continue;
-            if (CHECK_COLLISION(PLANES[plane].cur.x, PLANES[plane].cur.y, PLANES[plane2].cur.x, PLANES[plane2].cur.y, 2)) {
-                RENDER_OBJECTS.push({type: "rect", fcolor: "#f00", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, w: 0.4, h: 0.4, life: 1});
-                RENDER_OBJECTS.push({type: "circle", scolor: "#f00", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, r: 2, life: 1});
-                RENDER_OBJECTS.push({type: "rect", fcolor: "#f00", x: PLANES[plane2].cur.x, y: PLANES[plane2].cur.y, w: 0.4, h: 0.4, life: 1});
-                RENDER_OBJECTS.push({type: "circle", scolor: "#f00", x: PLANES[plane2].cur.x, y: PLANES[plane2].cur.y, r: 2, life: 1});
-                render();
-                MS_PER_TICK = Infinity;
-            }
-        }
-        if (CHECK_COLLISION(PLANES[plane].cur.x, PLANES[plane].cur.y, 50, 50, 0.95 * 50)) {
-            SCORE++;
-        }
-        RENDER_OBJECTS.push({type: "text", fcolor: "#0f0", text: plane, x: PLANES[plane].cur.x - 1, y: PLANES[plane].cur.y - 1, life: 1});
-        RENDER_OBJECTS.push({type: "circle", scolor: "#0f0", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, r: 2, life: 1});
-        RENDER_OBJECTS.push({type: "rect", fcolor: (plane == PLANE_UNDER_CONTROL ? "#0f0" : (plane == PRE_PLANE_UNDER_CONTROL ? "#008080" : "#006400")), x: PLANES[plane].cur.x - 0.2, y: PLANES[plane].cur.y - 0.2, w: 0.4, h: 0.4, life: 1});
-        RENDER_OBJECTS.push({type: "rect", fcolor: "#0f0", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, w: 0.2, h: 0.2, life: 5});
-        RENDER_OBJECTS.push({type: "line", scolor: "#ff0", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, tx: PLANES[plane].cur.x + Math.cos(PLANES[plane].to * Math.PI / 180) * PLANES[plane].speed * 2.5, ty: PLANES[plane].cur.y + Math.sin(PLANES[plane].to * Math.PI / 180) * PLANES[plane].speed * 2.5, life: 1});
-        RENDER_OBJECTS.push({type: "line", scolor: "#0f0", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, tx: PLANES[plane].cur.x + Math.cos(PLANES[plane].a * Math.PI / 180) * PLANES[plane].speed * 2.5, ty: PLANES[plane].cur.y + Math.sin(PLANES[plane].a * Math.PI / 180) * PLANES[plane].speed * 2.5, life: 1});
-    }
-    for (plane in PLANES) {
-        if (CHECK_COLLISION(CLIENT_X, CLIENT_Y, 50, 50, 0.95 * 50) && CHECK_COLLISION(CLIENT_X, CLIENT_Y, PLANES[plane].cur.x, PLANES[plane].cur.y, 3)) {
-            RENDER_OBJECTS.push({type: "circle", fcolor: "#008080", x: PLANES[plane].cur.x, y: PLANES[plane].cur.y, r: 3, life: 1});
-            PRE_PLANE_UNDER_CONTROL = plane;
-            break;
-        }
-    };
-    if (SPAWN_DELAY_TICKS <= 0) {
-        SUMMON_NEW_PLANE();
-    }
+    // Обновляем турели
+    updateTurrets();
+    RENDER_MENU.find((e) => {return e.id == "score"}).items[0][1].text = `${BASE.exp}`;
     render();
-    SPAWN_DELAY_TICKS -= 1;
     timer = setTimeout(run, MS_PER_TICK);
 }, MS_PER_TICK);
+
+function updateBase() {
+    if (BASE.hp <= 0) {
+        MS_PER_TICK = Infinity;
+        RENDER_MENU.find((e) => {return e.id == "gameover"}).visiable = true;
+        RENDER_MENU.find((e) => {return e.id == "gameover"}).items[1][1].text = BASE.exp;
+    }
+
+    RENDER_MENU.find((e) => {return e.id == "score"}).items[1][1].value = BASE.hp;
+}
+
+let ROBOTS_HP = {}; // Можно добавить роботов позже
+
+// Функция для создания коробки
+function spawnBox() {
+    // Генерируем случайный угол для точки на границе экрана
+    let a = Math.round(360 * Math.random());
+    
+    // Вычисляем координаты за пределами экрана (как в SUMMON_NEW_PLANE)
+    let x = (0.5 * (MIN_POINT_PX + MAX_POINT_PX * Math.cos(a / 180 * Math.PI - Math.PI))) / MIN_POINT_PX * 100;
+    let y = (0.5 * (MIN_POINT_PX + MAX_POINT_PX * Math.sin(a / 180 * Math.PI - Math.PI))) / MIN_POINT_PX * 100;
+    
+    // Случайная точка внутри круга (50,50 радиус 50)
+    let targetX = 25 + (Math.random() * 50) + 1;
+    let targetY = 25 + (Math.random() * 50) + 1;
+    
+    // Убедимся, что точка внутри круга
+    while (Math.sqrt((targetX - 50)**2 + (targetY - 50)**2) > 50) {
+        let targetX = 25 + (Math.random() * 50) + 1;
+        let targetY = 25 + (Math.random() * 50) + 1;
+    }
+    
+    // Угол движения к целевой точке
+    let angle = Math.atan2(targetY - y, targetX - x) * 180 / Math.PI;
+    
+    BOXES.push({
+        x: x,
+        y: y,
+        hp: 10,
+        speed: 1,
+        angle: angle,
+        targetX: targetX,
+        targetY: targetY,
+        life: Infinity
+    });
+}
+
+function spawnTurret(x, y) {
+    TURRETS.push({
+        x: x,
+        y: y,
+        hp: 30,
+        angle: 0,
+        lastShotTime: 0,
+        fireRate: 1.5,
+        bulletSpeed: 3,
+        damage: 3
+    });
+}
+
+function turretShoot(turret) {
+    let currentTime = Date.now();
+    if (currentTime - turret.lastShotTime < 1000 / turret.fireRate) return;
+    
+    turret.lastShotTime = currentTime;
+    
+    // Создаем пулю
+    BULLETS.push({
+        x: turret.x,
+        y: turret.y,
+        angle: turret.angle,
+        speed: turret.bulletSpeed,
+        damage: turret.damage,
+        life: 100 // время жизни пули в тиках
+    });
+    
+    // Звук выстрела (можно добавить позже)
+    // playSound('turret_shot');
+}
+
+function updateTurrets() {
+    // Обновляем коробки
+    for (let i = BOXES.length - 1; i >= 0; i--) {
+        let box = BOXES[i];
+        
+        // Проверяем, достигла ли коробка целевой точки
+        let distanceToTarget = Math.sqrt((box.x - box.targetX)**2 + (box.y - box.targetY)**2);
+        
+        if (distanceToTarget > box.speed) {
+            // Двигаем коробку к цели
+            box.x += Math.cos(box.angle * Math.PI / 180) * box.speed;
+            box.y += Math.sin(box.angle * Math.PI / 180) * box.speed;
+        } else {
+            // Коробка достигла цели - создаем турель
+            spawnTurret(box.targetX, box.targetY);
+            BOXES.splice(i, 1);
+        }
+    }
+
+    for (let box of BOXES) {
+        RENDER_OBJECTS.push({
+            type: "rect",
+            fcolor: "#8B4513", // коричневый цвет для коробок
+            x: box.x - 1,
+            y: box.y - 1,
+            w: 2,
+            h: 2,
+            life: 1
+        });
+    }
+    
+    // Обновляем турели
+    for (let i = TURRETS.length - 1; i >= 0; i--) {
+        let turret = TURRETS[i];
+        
+        // Просто стреляем в игрока
+        turret.angle = GET_ALGLE(50, 50, turret.x, turret.y);
+        
+        // Стрельба
+        if (Date.now() - turret.lastShotTime > 1000 / turret.fireRate) {
+            turret.lastShotTime = Date.now();
+            BULLETS.push({
+                x: turret.x,
+                y: turret.y,
+                angle: turret.angle,
+                speed: turret.bulletSpeed,
+                damage: turret.damage,
+                life: 100
+            });
+        }
+        
+        // Визуализация
+        RENDER_OBJECTS.push({
+            type: "rect",
+            fcolor: "#8B0000",
+            x: turret.x - 1.5,
+            y: turret.y - 1.5,
+            w: 3,
+            h: 3,
+            life: 1
+        });
+    }
+    
+    // Обновляем пули
+    for (let i = BULLETS.length - 1; i >= 0; i--) {
+        let bullet = BULLETS[i];
+        bullet.x += Math.cos(bullet.angle * Math.PI / 180) * bullet.speed;
+        bullet.y += Math.sin(bullet.angle * Math.PI / 180) * bullet.speed;
+        
+        if (CHECK_COLLISION(bullet.x, bullet.y, 50, 50, 2)) {
+            BASE.hp -= bullet.damage;
+            updateBase();
+            BULLETS.splice(i, 1);
+            continue;
+        }
+        
+        bullet.life--;
+        if (bullet.life <= 0) BULLETS.splice(i, 1);
+        
+        RENDER_OBJECTS.push({
+            type: "rect",
+            fcolor: "#FF4500",
+            x: bullet.x - 0.3,
+            y: bullet.y - 0.3,
+            w: 0.6,
+            h: 0.6,
+            life: 1
+        });
+    }
+}
 
 render();
