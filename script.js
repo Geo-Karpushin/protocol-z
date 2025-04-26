@@ -29,7 +29,7 @@ let RENDER_MENU = [
                 text: "Начать игру",
                 fontSize: 124,
                 font: "Arial",
-                do: () => {alert(123);}
+                act: () => {console.log(123);}
             }],
             [{
                 type: "progressbar",
@@ -41,6 +41,7 @@ let RENDER_MENU = [
         ]
     }
 ];
+let BUTTONS = [];
 // let RENDER_MENU = [];
 
 const UI_STATE = {
@@ -114,7 +115,6 @@ function isInsideRect(x, y, rect_x, rect_y, rect_w, rect_h) {
 function renderM(menu) {
     ctx.save();
 
-    // Конфигурация по умолчанию
     const config = {
         padding: 2,
         spacing: 1.5,
@@ -125,12 +125,10 @@ function renderM(menu) {
         ...menu.config
     };
 
-    // 1. Рассчитываем размеры меню
     let totalHeight = 0;
     let maxWidth = 0;
-    const elements = []; // Массив для хранения размеров элементов
+    const elements = [];
 
-    // Первый проход - вычисление размеров
     menu.items.forEach(row => {
         let rowWidth = 0;
         let rowHeight = 0;
@@ -141,11 +139,11 @@ function renderM(menu) {
             ctx.font = (element.fontSize || 10) * SCALE + "px " + (element.font || "Arial") + " " + (element.fontStyle || "");
             let metrics = ctx.measureText(element.text || "");
             
-            // Определяем размеры элементов
             switch(element.type) {
                 case 'button':
                     elem.width = (metrics.width / (MIN_POINT_PX * SCALE)) * 100 + config.spacing * 2;
                     elem.height = ((element.fontSize || 10) / MIN_POINT_PX) * 100 + config.spacing * 2;
+                    elem.act = element.act;
                     break;
 
                 case 'text':
@@ -168,13 +166,13 @@ function renderM(menu) {
         totalHeight += rowHeight + config.spacing;
     });
 
-    // 2. Позиционирование меню
+    BUTTONS = [];
+
     const menuWidth = maxWidth + 2 * config.padding;
     const menuHeight = totalHeight + 2 * config.padding;
     const startX = menu.x - menuWidth / 2;
     const startY = menu.y;
 
-    // 3. Отрисовка фона
     renderO({
         type: "rect",
         x: startX,
@@ -184,7 +182,6 @@ function renderM(menu) {
         fcolor: config.bgColor
     });
 
-    // 4. Рендер элементов
     let currentY = startY + config.padding;
     let elementIndex = 0;
 
@@ -196,7 +193,6 @@ function renderM(menu) {
             const elem = elements[elementIndex];
             const elemY = currentY + (rowHeight - elem.height) / 2;
 
-            // Рендер элементов
             switch(element.type) {
                 case 'text':
                     renderO({
@@ -214,7 +210,6 @@ function renderM(menu) {
                     break;
 
                 case 'button':
-                    // Фон кнопки
                     renderO({
                         type: "rect",
                         x: currentX,
@@ -226,7 +221,6 @@ function renderM(menu) {
                             : config.buttonColor
                     });
 
-                    // Текст кнопки
                     renderO({
                         type: "text",
                         text: element.text,
@@ -239,10 +233,10 @@ function renderM(menu) {
                         fontSize: element.fontSize,
                         fontStyle: element.fontStyle
                     });
+                    BUTTONS.push({x: currentX, y: elemY, w: elem.width, h: elem.height, do: elem.act})
                     break;
 
                 case 'progressbar':
-                    // Фон
                     renderO({
                         type: "rect",
                         x: currentX,
@@ -252,7 +246,6 @@ function renderM(menu) {
                         fcolor: "#2c3e50"
                     });
 
-                    // Заполнение
                     renderO({
                         type: "rect",
                         x: currentX,
@@ -451,13 +444,10 @@ window.addEventListener("wheel", (e) => {
 
 // game clicks
 canvas.addEventListener("click", (e) => {
-    for (let i = 0; i < RENDER_MENU.length; i++){
-        for (let j = 0; j < RENDER_MENU[i].items.length; j++){
-            console.log(i, j)
-            if (!RENDER_MENU[i].items[j].type == "button" || !isInsideRect(e.offsetX / MIN_POINT_PX * 100, e.offsetY / MIN_POINT_PX * 100, RENDER_MENU[i].items[j].x, RENDER_MENU[i].items[j].y, RENDER_MENU[i].items[j].width, RENDER_MENU[i].items[j].height)) continue;
-            RENDER_MENU[i].items[j].do();
-            return;
-        }
+    for (let i = 0; i < BUTTONS.length; i++){
+        if (!isInsideRect(e.offsetX / MIN_POINT_PX * 100, e.offsetY / MIN_POINT_PX * 100, BUTTONS[i].x, BUTTONS[i].y, BUTTONS[i].w, BUTTONS[i].h)) continue;
+        BUTTONS[i].do();
+        break;
     }
 
     if (!CHECK_COLLISION(CLIENT_X, CLIENT_Y, 50, 50, 0.95 * 50)) return;
